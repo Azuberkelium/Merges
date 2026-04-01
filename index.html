@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Darts Lab Professional</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617;
+            color: #f8fafc;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            margin: 0;
+            display: flex;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+
+        .tile-active {
+            animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .powerup-active {
+            animation: glow 1.5s infinite alternate;
+            border-color: #3b82f6 !important;
+            background: #1d4ed8 !important;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 5px #3b82f6; }
+            to { box-shadow: 0 0 20px #3b82f6; }
+        }
+
+        * { -webkit-user-select: none; user-select: none; }
+        input { -webkit-user-select: text; user-select: text; }
+    </style>
+</head>
+<body>
+
+    <!-- LEFT LIBRARY (Sidebar) -->
+    <aside class="w-80 h-full bg-slate-900 border-r border-slate-800 flex flex-col z-20 shadow-2xl">
+        <!-- MODE SELECTOR -->
+        <div class="p-4 border-b border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+                <span class="text-[10px] font-black tracking-widest text-slate-500 uppercase">Laboratory Library</span>
+                <div class="flex gap-1">
+                    <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                    <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-1">
+                <button onclick="setAppMode('dartsmap')" id="btn-dartsmap" class="h-12 rounded-xl border border-blue-500/50 bg-blue-600 text-white flex items-center justify-center transition-all">
+                    <i data-lucide="map" class="w-5 h-5"></i>
+                </button>
+                <button onclick="setAppMode('dartstrix')" id="btn-dartstrix" class="h-12 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 flex items-center justify-center transition-all">
+                    <i data-lucide="beaker" class="w-5 h-5"></i>
+                </button>
+                <button onclick="setAppMode('dartsmerge')" id="btn-dartsmerge" class="h-12 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 flex items-center justify-center transition-all">
+                    <i data-lucide="hash" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4"></i>
+                <input type="text" id="search" placeholder="Search items..." oninput="renderLibrary()"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 text-white">
+            </div>
+        </div>
+
+        <!-- ITEMS LIST -->
+        <div id="lib-scroll" class="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
+            <!-- Renders dynamically -->
+        </div>
+    </aside>
+
+    <!-- RIGHT CANVAS (Main) -->
+    <main class="flex-1 flex flex-col h-full bg-slate-950">
+        <!-- TOP NAV -->
+        <header class="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/50 backdrop-blur-md">
+            <div class="flex bg-slate-900 p-1 rounded-2xl border border-slate-800">
+                <button onclick="setView('grid')" id="tab-grid" class="px-6 py-2 rounded-xl text-[10px] font-black tracking-widest bg-slate-800 text-white shadow-lg uppercase transition-all">Create</button>
+                <button onclick="setView('play')" id="tab-play" class="px-6 py-2 rounded-xl text-[10px] font-black tracking-widest text-slate-500 uppercase transition-all">Play</button>
+            </div>
+
+            <!-- GRID SIZE CONTROLS (Only visible in Grid mode) -->
+            <div id="grid-controls" class="flex items-center gap-3">
+                <div class="flex items-center bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 gap-2">
+                    <span class="text-[9px] font-black text-slate-500 uppercase">Rows</span>
+                    <input type="number" id="grid-rows" value="15" min="1" max="30" onchange="resizeGrid()" class="w-10 bg-transparent text-center font-bold outline-none">
+                </div>
+                <div class="flex items-center bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 gap-2">
+                    <span class="text-[9px] font-black text-slate-500 uppercase">Cols</span>
+                    <input type="number" id="grid-cols" value="5" min="1" max="15" onchange="resizeGrid()" class="w-10 bg-transparent text-center font-bold outline-none">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div id="lives-ui" class="hidden flex gap-1 bg-slate-950 px-3 py-2 rounded-full border border-slate-800"></div>
+                <button onclick="window.print()" class="p-2.5 bg-white text-slate-950 rounded-xl active:scale-90 transition-all">
+                    <i data-lucide="share-2" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- STAGE -->
+        <div id="stage" class="flex-1 overflow-auto p-8 flex items-start justify-center">
+            <!-- Grid or Play UI -->
+        </div>
+    </main>
+
+    <!-- GAME OVER -->
+    <div id="game-over" class="fixed inset-0 bg-slate-950/95 z-50 hidden flex flex-col items-center justify-center p-8 backdrop-blur-md">
+        <div class="text-center animate-in zoom-in duration-300">
+            <i data-lucide="skull" class="w-20 h-20 text-red-500 mx-auto mb-6"></i>
+            <h2 class="text-5xl font-black text-white mb-2">LAB TERMINATED</h2>
+            <p id="final-score" class="text-7xl font-black text-blue-400 mb-10 tracking-tight">0</p>
+            <button onclick="resetApp()" class="px-12 py-5 bg-white text-slate-950 rounded-3xl font-black text-xl active:scale-95 transition-all">RESTART EXPERIMENT</button>
+        </div>
+    </div>
+
+    <script>
+        // --- ASSETS & DATA ---
+        const FLAGS = ["af","ax","al","dz","as","ad","ao","ai","aq","ag","ar","am","aw","au","at","az","bs","bh","bd","bb","by","be","bz","bj","bm","bt","bo","bq","ba","bw","bv","br","io","bn","bg","bf","bi","kh","cm","ca","cv","ky","cf","td","cl","cn","cx","cc","co","km","cg","cd","ck","cr","ci","hr","cu","cw","cy","cz","dk","dj","dm","do","ec","eg","sv","gq","er","ee","et","fk","fo","fj","fi","fr","gf","pf","tf","ga","gm","ge","de","gh","gi","gr","gl","gd","gp","gu","gt","gg","gn","gw","gy","ht","hm","va","hn","hk","hu","is","in","id","ir","iq","ie","im","il","it","jm","jp","je","jo","kz","ke","ki","kp","kr","kw","kg","la","lv","lb","ls","lr","ly","li","lt","lu","mo","mk","mg","mw","my","mv","ml","mt","mh","mq","mr","mu","yt","mx","fm","md","mc","mn","me","ms","ma","mz","mm","na","nr","np","nl","nc","nz","ni","ne","ng","nu","nf","mp","no","om","pk","pw","ps","pa","pg","py","pe","ph","pn","pl","pt","pr","qa","re","ro","ru","rw","bl","sh","kn","lc","mf","pm","vc","ws","sm","st","sa","sn","rs","sc","sl","sg","sx","sk","si","sb","so","za","gs","ss","es","lk","sd","sr","sj","sz","se","ch","sy","tw","tj","tz","th","tl","tg","tk","to","tt","tn","tr","tm","tc","tv","ug","ua","ae","gb","us","um","uy","uz","vu","ve","vn","vg","vi","wf","eh","ye","zm","zw"];
+        const ATOMIC = ["H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar","K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr","Rb","Sr","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","In","Sn","Sb","Te","I","Xe","Cs","Ba","La","Ce","Pr","Nd","Pm","Sm","Eu","Gd","Tb","Dy","Ho","Er","Tm","Yb","Lu","Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg","Tl","Pb","Bi","Po","At","Rn","Fr","Ra","Ac","Th","Pa","U","Np","Pu","Am","Cm","Bk","Cf","Es","Fm","Md","No","Lr","Rf","Db","Sg","Bh","Hs","Mt","Ds","Rg","Cn","Nh","Fl","Mc","Lv","Ts","Og"];
+
+        // --- STATE ---
+        let appMode = 'dartsmap';
+        let viewMode = 'grid';
+        let selectedItem = null;
+        let gridConfig = { rows: 15, cols: 5 };
+        let placedTiles = {}; // Key: "r,c", Value: item
+        
+        // Game state
+        let score = 0, lives = 3;
+        let board = []; 
+        let gameQueue = [];
+        let activePower = null;
+        let powerCharges = { hammer: 2, swap: 3, bomb: 1 };
+
+        // --- UI CORE ---
+
+        function setAppMode(m) {
+            appMode = m;
+            document.querySelectorAll('[id^="btn-"]').forEach(btn => {
+                btn.className = 'h-12 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 flex items-center justify-center transition-all';
+            });
+            const color = m === 'dartsmap' ? 'blue' : m === 'dartstrix' ? 'emerald' : 'purple';
+            document.getElementById(`btn-${m}`).className = `h-12 rounded-xl border border-${color}-500/50 bg-${color}-600 text-white flex items-center justify-center shadow-lg`;
+            
+            renderLibrary();
+            refreshView();
+        }
+
+        function setView(v) {
+            viewMode = v;
+            document.querySelectorAll('[id^="tab-"]').forEach(btn => {
+                btn.className = 'px-6 py-2 rounded-xl text-[10px] font-black tracking-widest text-slate-500 uppercase transition-all';
+            });
+            document.getElementById(`tab-${v}`).className = 'px-6 py-2 rounded-xl text-[10px] font-black tracking-widest bg-slate-800 text-white shadow-lg uppercase transition-all';
+            
+            document.getElementById('grid-controls').classList.toggle('hidden', v !== 'grid');
+            document.getElementById('lives-ui').classList.toggle('hidden', v !== 'play');
+            
+            renderLibrary();
+            refreshView();
+        }
+
+        function refreshView() {
+            if (viewMode === 'grid') renderGridEditor();
+            else startPlayMode();
+        }
+
+        function renderLibrary() {
+            const container = document.getElementById('lib-scroll');
+            const query = document.getElementById('search').value.toLowerCase();
+            let html = '';
+
+            // Grid Controls
+            if (viewMode === 'grid') {
+                html += `
+                <div class="bg-slate-950/50 p-3 rounded-2xl border border-slate-800 mb-6">
+                    <p class="text-[9px] font-black uppercase text-slate-600 mb-3 tracking-tighter">Logic Markers</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        ${libActionBtn('drop', 'Drop Point', 'arrow-down')}
+                        ${libActionBtn('end', 'Death Line', 'alert-triangle')}
+                        ${libActionBtn('life', 'Life Line', 'heart-pulse')}
+                    </div>
+                </div>`;
+            }
+
+            // Game Items
+            html += `<div class="grid grid-cols-2 gap-2 pb-20">`;
+            const data = getModeLibrary();
+            data.filter(i => i.name.toLowerCase().includes(query)).forEach(item => {
+                const isSel = selectedItem?.id === item.id;
+                html += `
+                <button onclick="selectItem('${item.id}')" class="p-3 rounded-2xl border flex flex-col items-center justify-center gap-2 h-24 transition-all ${isSel ? 'bg-white/10 border-white/40 ring-2 ring-white/10' : 'bg-slate-800/50 border-slate-700 active:bg-slate-700'}">
+                    ${renderTileIcon(item, 'sm')}
+                    <span class="text-[8px] font-bold text-slate-400 truncate w-full text-center uppercase tracking-tighter">${item.name}</span>
+                </button>`;
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function libActionBtn(type, name, icon) {
+            const isSel = selectedItem?.type === 'control' && selectedItem.cid === type;
+            return `
+            <button onclick="selectControl('${type}')" class="p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all h-16 ${isSel ? 'bg-orange-600 border-orange-400 text-white shadow-lg' : 'bg-slate-900 border-slate-800 text-slate-500'}">
+                <i data-lucide="${icon}" class="w-4 h-4"></i>
+                <span class="text-[6px] font-black uppercase">${name}</span>
+            </button>`;
+        }
+
+        function getModeLibrary() {
+            if (appMode === 'dartsmap') return FLAGS.map(f => ({ id: f, code: f, name: f.toUpperCase(), type: 'flag' }));
+            if (appMode === 'dartstrix') return ATOMIC.map((s, i) => ({ id: `el-${s}`, symbol: s, name: s, type: 'element', color: `hsl(${(i * 15) % 360}, 70%, 60%)` }));
+            return Array.from({length: 41}, (_, i) => {
+                const v = Math.pow(2, i);
+                return { id: `pow-${v}`, value: v, name: v.toLocaleString(), type: 'power', color: `hsl(${(i * 30) % 360}, 70%, 50%)` };
+            });
+        }
+
+        function renderTileIcon(item, size='md') {
+            const dim = size === 'sm' ? 'w-10 h-6' : 'w-14 h-9';
+            if (item.type === 'flag') return `<img src="https://flagcdn.com/w80/${item.code}.png" class="${dim} rounded-sm shadow-sm object-cover">`;
+            if (item.type === 'element') return `<span class="${size==='sm'?'text-lg':'text-3xl'} font-black" style="color:${item.color}">${item.symbol}</span>`;
+            return `<span class="${size==='sm'?'text-[10px]':'text-xs'} font-black" style="color:${item.color}">${item.name}</span>`;
+        }
+
+        // --- GRID LOGIC ---
+
+        function resizeGrid() {
+            gridConfig.rows = parseInt(document.getElementById('grid-rows').value) || 15;
+            gridConfig.cols = parseInt(document.getElementById('grid-cols').value) || 5;
+            renderGridEditor();
+        }
+
+        function renderGridEditor() {
+            const stage = document.getElementById('stage');
+            let html = `<div class="grid gap-1 lg:gap-1.5 p-4 bg-slate-900/20 rounded-3xl border border-slate-800/50" 
+                        style="grid-template-columns: repeat(${gridConfig.cols}, 1fr)">`;
+            
+            for(let r=0; r<gridConfig.rows; r++) {
+                for(let c=0; c<gridConfig.cols; c++) {
+                    const key = `${r},${c}`;
+                    const t = placedTiles[key];
+                    const activeStyle = t ? (t.type === 'control' ? 'bg-orange-500/20 border-orange-500' : 'bg-slate-800 border-slate-700 shadow-xl') : 'border-slate-800/40 border-dashed hover:border-slate-700';
+                    html += `
+                    <div onclick="toggleTile(${r},${c})" class="w-14 h-14 lg:w-20 lg:h-20 rounded-2xl border-2 flex items-center justify-center cursor-pointer transition-all ${activeStyle}">
+                        ${t ? (t.type === 'control' ? `<i data-lucide="${t.icon}" class="w-6 h-6 text-orange-400"></i>` : renderTileIcon(t, 'sm')) : ''}
+                    </div>`;
+                }
+            }
+            html += `</div>`;
+            stage.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function toggleTile(r, c) {
+            const key = `${r},${c}`;
+            if (selectedItem) {
+                placedTiles[key] = { ...selectedItem };
+                selectedItem = null;
+                renderLibrary();
+            } else {
+                delete placedTiles[key];
+            }
+            renderGridEditor();
+        }
+
+        function selectItem(id) {
+            selectedItem = getModeLibrary().find(i => i.id === id);
+            renderLibrary();
+        }
+
+        function selectControl(cid) {
+            const cfg = {
+                drop: { name: 'Drop Point', icon: 'arrow-down' },
+                end: { name: 'Death Line', icon: 'alert-triangle' },
+                life: { name: 'Life Line', icon: 'heart-pulse' }
+            };
+            selectedItem = { type: 'control', cid, ...cfg[cid] };
+            renderLibrary();
+        }
+
+        // --- PLAY ENGINE ---
+
+        function startPlayMode() {
+            score = 0; lives = 3; powerCharges = { hammer: 2, swap: 3, bomb: 1 };
+            // Play board always 5x5 for standard gameplay mechanics
+            board = Array.from({length: 5}, () => Array(5).fill(null));
+            gameQueue = Array.from({length: 5}, () => getRandomItem());
+            activePower = null;
+            renderPlayUI();
+            startGameLoop();
+        }
+
+        function getRandomItem() {
+            const lib = getModeLibrary();
+            return lib[Math.floor(Math.random() * lib.length)];
+        }
+
+        function renderPlayUI() {
+            const stage = document.getElementById('stage');
+            stage.innerHTML = `
+            <div class="flex flex-col items-center gap-6 w-full max-w-2xl h-full py-4">
+                <div class="w-full flex gap-4">
+                    <div class="flex-1 bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center shadow-xl border-t-blue-500/50 border-t-4">
+                        <p class="text-[10px] font-black uppercase text-slate-500 mb-1">Score</p>
+                        <p class="text-4xl font-black tabular-nums text-white">${score.toLocaleString()}</p>
+                    </div>
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 flex items-center gap-6 shadow-xl">
+                        <div class="text-center">
+                            <p class="text-[8px] font-black text-slate-500 uppercase mb-2">Up Next</p>
+                            <div class="w-16 h-16 bg-slate-950 border-2 border-slate-800 rounded-2xl flex items-center justify-center">
+                                ${renderTileIcon(gameQueue[0], 'sm')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-1 w-full gap-6 items-center justify-center">
+                    <div class="flex flex-col gap-4 p-3 bg-slate-900 border border-slate-800 rounded-[32px] shadow-xl">
+                        ${powerBtn('hammer', 'hammer', powerCharges.hammer)}
+                        ${powerBtn('swap', 'repeat', powerCharges.swap)}
+                        ${powerBtn('bomb', 'bomb', powerCharges.bomb)}
+                    </div>
+
+                    <div class="bg-slate-900 p-5 rounded-[48px] border border-slate-800 shadow-2xl">
+                        <div class="grid grid-cols-5 gap-3 mb-5">
+                            ${[0,1,2,3,4].map(c => `
+                                <button onclick="dropTile(${c})" class="h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 active:bg-blue-600 active:text-white transition-all">
+                                    <i data-lucide="arrow-down" class="w-6 h-6"></i>
+                                </button>
+                            `).join('')}
+                        </div>
+                        <div class="grid grid-cols-5 gap-3 bg-slate-950 p-4 rounded-[40px] border border-slate-800 shadow-inner">
+                            ${board.flat().map((t, i) => `
+                                <div onclick="handleCellTap(${Math.floor(i/5)}, ${i%5})" class="w-20 h-20 rounded-2xl border-2 flex items-center justify-center transition-all ${t ? 'bg-slate-800 border-slate-600 shadow-lg tile-active' : 'bg-slate-900/30 border-slate-900/40 opacity-20'}">
+                                    ${t ? renderTileIcon(t, 'sm') : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+            renderLives();
+            lucide.createIcons();
+        }
+
+        function powerBtn(type, icon, count) {
+            const active = activePower === type ? 'powerup-active' : '';
+            return `
+                <button onclick="usePower('${type}')" class="w-16 h-16 rounded-2xl border border-slate-700 bg-slate-800 flex items-center justify-center relative transition-all active:scale-90 ${active} ${count <= 0 ? 'opacity-20 pointer-events-none' : ''}">
+                    <i data-lucide="${icon}" class="w-6 h-6"></i>
+                    <span class="absolute -top-1 -right-1 bg-blue-600 px-2 py-0.5 rounded-full text-[9px] font-black border border-slate-950">${count}</span>
+                </button>`;
+        }
+
+        function renderLives() {
+            const ui = document.getElementById('lives-ui');
+            let h = '';
+            for(let i=0; i<3; i++) h += `<i data-lucide="heart" class="w-5 h-5 ${i < lives ? 'text-red-500 fill-red-500' : 'text-slate-800'}"></i>`;
+            ui.innerHTML = h;
+            lucide.createIcons();
+        }
+
+        function dropTile(col) {
+            if (activePower) return;
+            let targetRow = -1;
+            for(let r=4; r>=0; r--) { if(!board[r][col]) { targetRow = r; break; } }
+
+            if (targetRow === -1) {
+                lives--;
+                if(lives <= 0) endGame();
+                else { board = Array.from({length: 5}, () => Array(5).fill(null)); renderPlayUI(); }
+                return;
+            }
+
+            board[targetRow][col] = gameQueue.shift();
+            gameQueue.push(getRandomItem());
+            renderPlayUI();
+        }
+
+        function usePower(p) {
+            if (p === 'swap') {
+                gameQueue[0] = getRandomItem();
+                powerCharges.swap--;
+                renderPlayUI();
+            } else {
+                activePower = (activePower === p) ? null : p;
+                renderPlayUI();
+            }
+        }
+
+        function handleCellTap(r, c) {
+            if (!activePower) return;
+            if (activePower === 'hammer') { board[r][c] = null; powerCharges.hammer--; }
+            else if (activePower === 'bomb') {
+                for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                    if(board[r+dr]?.[c+dc] !== undefined) board[r+dr][c+dc] = null;
+                }
+                powerCharges.bomb--;
+            }
+            activePower = null;
+            renderPlayUI();
+        }
+
+        function startGameLoop() {
+            const loop = setInterval(() => {
+                if (viewMode !== 'play' || lives <= 0) { clearInterval(loop); return; }
+                
+                let merged = false;
+                // Merge Scan
+                for(let r=0; r<5; r++) {
+                    for(let c=0; c<5; c++) {
+                        const curr = board[r][c];
+                        if (!curr) continue;
+                        
+                        const neighbors = [[r, c+1], [r+1, c]];
+                        neighbors.forEach(([nr, nc]) => {
+                            if (board[nr]?.[nc]) {
+                                const neigh = board[nr][nc];
+                                if (appMode === 'dartsmerge' && curr.value === neigh.value) {
+                                    const nv = curr.value * 2;
+                                    score += nv;
+                                    board[r][c] = null;
+                                    board[nr][nc] = getModeLibrary().find(p => p.value === nv) || { value: nv, name: nv.toLocaleString(), color: 'white', type: 'power' };
+                                    merged = true;
+                                } else if (appMode !== 'dartsmerge') {
+                                    // Map/Trix simple matching
+                                    score += 100;
+                                    board[r][c] = null; board[nr][nc] = null;
+                                    merged = true;
+                                }
+                            }
+                        });
+                    }
+                }
+
+                if (merged) {
+                    // Gravity
+                    for(let c=0; c<5; c++) {
+                        let col = [];
+                        for(let r=0; r<5; r++) if(board[r][c]) col.push(board[r][c]);
+                        for(let r=4; r>=0; r--) board[r][c] = col.pop() || null;
+                    }
+                    renderPlayUI();
+                }
+            }, 600);
+        }
+
+        function endGame() {
+            document.getElementById('final-score').innerText = score.toLocaleString();
+            document.getElementById('game-over').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function resetApp() {
+            document.getElementById('game-over').classList.add('hidden');
+            setView('grid');
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            setAppMode('dartsmap');
+            setView('grid');
+        };
+    </script>
+</body>
+</html>
